@@ -96,14 +96,12 @@ unsigned long getESPchipID() {
 //
 //
 //
-void generate_payload(float temperature, float humidity, float pressure,  float currentVoltage ) {
+void generate_payload(float temperature, float humidity, float pressure) {
   uint32_t temp_Binary = temperature * 100;
   uint32_t humidityBinary = humidity * 100;
   uint32_t pressureBinary = pressure * 100;
-  
-  uint32_t currentVoltage_Binary = ((currentVoltage) * 1000);
 
-  uint8_t payload[18];
+  uint8_t payload[6];
 
   
   payload[0] = ( temp_Binary >> 8 ) & 0xFF;
@@ -114,9 +112,6 @@ void generate_payload(float temperature, float humidity, float pressure,  float 
 
   payload[4] = ( pressureBinary >> 8 ) & 0xFF;
   payload[5] = pressureBinary & 0xFF;
-
-  payload[6] = (currentVoltage_Binary >> 8) & 0xFF;
-  payload[7] = currentVoltage_Binary  & 0xFF;
   
   
   int i = 0;
@@ -124,6 +119,8 @@ void generate_payload(float temperature, float humidity, float pressure,  float 
     tx_payload[i] = payload[i];
     i++;
   }
+
+  
 }
 //==================================================================================================================================
 // LoRa payload:
@@ -171,10 +168,10 @@ void sendData2TTN(int event, int tbd, unsigned int temperature) {
 //==================================================================================================================================
 // send Data to TTN
 //==================================================================================================================================
-void sendBMEData2TTN(int event, int tbd, float temperature, float humidity, float pressure, float currentVoltage) {
+void sendBMEData2TTN(int event, int tbd, float temperature, float humidity, float pressure) {
  
-  unsigned char ttnData[20];
-  for (int i=0; i < 20; i++) {
+  unsigned char ttnData[10];
+  for (int i=0; i < 10; i++) {
      ttnData[i] = 0x00;
   };
   
@@ -185,11 +182,6 @@ void sendBMEData2TTN(int event, int tbd, float temperature, float humidity, floa
   uint32_t humidityBinary = humidity * 100;
   uint32_t pressureBinary = pressure * 100;
   
-  uint32_t currentVoltage_Binary = ((currentVoltage) * 1000);
-
-  uint8_t payload[18];
-
-  
   ttnData[2] = ( temp_Binary >> 8 ) & 0xFF;
   ttnData[3] = temp_Binary & 0xFF;
 
@@ -199,9 +191,6 @@ void sendBMEData2TTN(int event, int tbd, float temperature, float humidity, floa
   ttnData[6] = ( pressureBinary >> 16 ) & 0xFF;
   ttnData[7] = ( pressureBinary >> 8 ) & 0xFF;
   ttnData[8] = pressureBinary & 0xFF;
-
-  ttnData[9] = (currentVoltage_Binary >> 8) & 0xFF;
-  ttnData[10] = currentVoltage_Binary  & 0xFF;
   
   int cnt = 12;
   lorawan_send(1,ttnData,cnt,false,NULL,NULL,NULL);
@@ -368,7 +357,7 @@ void loop()
     }
   }
 
-  generate_payload(temperature,humidity,pressure,currentVoltage);
+  generate_payload(temperature,humidity,pressure);
 
   // *************************************************************************************************
   // have to send the data? send in the interval of TTN_MESSAGING_INTERVAL
@@ -379,7 +368,7 @@ void loop()
  
     Serial.println("Sending to TTN ...");
     // avoid neg. numbers on temperature - ttn payload formatter has to subtract the 500
-    sendBMEData2TTN(1,0, (temperature+500), humidity, pressure, vBat);
+    sendBMEData2TTN(1,0, (temperature+500), humidity, pressure);
     // print state of switch
     Serial.println("data sent");
   }
