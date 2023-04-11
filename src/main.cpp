@@ -288,7 +288,23 @@ void loop()
   static bool have_thp = true;
   static float temperature = 0.0, humidity = 0.0, pressure = 0.0;
 
-  read_THP(current_ms, &have_thp, &temperature, &humidity, &pressure);
+  if (Serial.available() > 0) {
+    String data = Serial.readStringUntil('\n'); // read the incoming data until a newline character is received
+    temperature = data.substring(0, data.indexOf(',')).toFloat(); // extract the first value before the comma delimiter and convert it to a float
+    humidity = data.substring(data.indexOf(',') + 1).toFloat(); // extract the second value after the comma delimiter and convert it to a float
+    //float pressure = data.substring(data.indexOf(',') + 2).toFloat(); // extract the second value after the comma delimiter and convert it to a float
+
+    Serial.print("Value 1: ");
+    Serial.println(temperature);
+    Serial.print("Value 2: ");
+    Serial.println(humidity);
+    //Serial.print("Value 3: ");
+    //Serial.println(pressure);
+  } else {
+    Serial.println("Error at Serial");
+  }
+
+  //read_THP(current_ms, &have_thp, &temperature, &humidity, &pressure);
 
   Serial.print("temperature ");
   Serial.println(temperature);
@@ -351,6 +367,9 @@ void loop()
       //display_gps(0, 0, 0, 0, 0 , 0);
     }
   }
+
+  generate_payload(temperature,humidity,pressure,currentVoltage);
+
   // *************************************************************************************************
   // have to send the data? send in the interval of TTN_MESSAGING_INTERVAL
   // *************************************************************************************************
