@@ -96,10 +96,10 @@ unsigned long getESPchipID() {
 //
 //
 //
-void generate_payload(float temperature, float humidity, float pressure) {
+void generate_payload(float temperature, float humidity, float aqi_ppm) {
   uint32_t temp_Binary = temperature * 100;
   uint32_t humidityBinary = humidity * 100;
-  uint32_t pressureBinary = pressure * 100;
+  uint32_t aqi_ppmBinary = aqi_ppm * 100;
 
   uint8_t payload[6];
 
@@ -110,8 +110,8 @@ void generate_payload(float temperature, float humidity, float pressure) {
   payload[2] = ( humidityBinary >> 8 ) & 0xFF;
   payload[3] = humidityBinary & 0xFF;
 
-  payload[4] = ( pressureBinary >> 8 ) & 0xFF;
-  payload[5] = pressureBinary & 0xFF;
+  payload[4] = ( aqi_ppmBinary >> 8 ) & 0xFF;
+  payload[5] = aqi_ppmBinary & 0xFF;
   
   
   int i = 0;
@@ -168,7 +168,7 @@ void sendData2TTN(int event, int tbd, unsigned int temperature) {
 //==================================================================================================================================
 // send Data to TTN
 //==================================================================================================================================
-void sendBMEData2TTN(int event, int tbd, float temperature, float humidity, float pressure) {
+void sendBMEData2TTN(int event, int tbd, float temperature, float humidity, float aqi_ppm) {
  
   unsigned char ttnData[10];
   for (int i=0; i < 10; i++) {
@@ -180,7 +180,7 @@ void sendBMEData2TTN(int event, int tbd, float temperature, float humidity, floa
 
   uint32_t temp_Binary = temperature * 100;
   uint32_t humidityBinary = humidity * 100;
-  uint32_t pressureBinary = pressure * 100;
+  uint32_t aqi_ppmBinary = aqi_ppm * 100;
   
   ttnData[2] = ( temp_Binary >> 8 ) & 0xFF;
   ttnData[3] = temp_Binary & 0xFF;
@@ -188,9 +188,8 @@ void sendBMEData2TTN(int event, int tbd, float temperature, float humidity, floa
   ttnData[4] = ( humidityBinary >> 8 ) & 0xFF;
   ttnData[5] = humidityBinary & 0xFF;
 
-  ttnData[6] = ( pressureBinary >> 16 ) & 0xFF;
-  ttnData[7] = ( pressureBinary >> 8 ) & 0xFF;
-  ttnData[8] = pressureBinary & 0xFF;
+  ttnData[6] = ( aqi_ppmBinary >> 8 ) & 0xFF;
+  ttnData[7] = aqi_ppmBinary & 0xFF;
   
   int cnt = 12;
   lorawan_send(1,ttnData,cnt,false,NULL,NULL,NULL);
@@ -275,23 +274,22 @@ void loop()
   
   unsigned long current_ms = millis();  // to save multiple calls to millis()
   static bool have_thp = true;
-  static float temperature = 0.0, humidity = 0.0, pressure = 0.0;
+  static float temperature = 0.0, humidity = 0.0;
+  static int aqi_ppm = 0.0;
 
-  if (Serial.available() > 0) {
     String data = Serial.readStringUntil('\n'); // read the incoming data until a newline character is received
     temperature = data.substring(0, data.indexOf(',')).toFloat(); // extract the first value before the comma delimiter and convert it to a float
-    humidity = data.substring(data.indexOf(',') + 1).toFloat(); // extract the second value after the comma delimiter and convert it to a float
-    //float pressure = data.substring(data.indexOf(',') + 2).toFloat(); // extract the second value after the comma delimiter and convert it to a float
+    data = data.substring(data.indexOf(',') + 1);
+    humidity = data.substring(0, data.indexOf(',')).toFloat(); // extract the second value after the comma delimiter and convert it to a float
+    aqi_ppm = data.substring(data.indexOf(',') + 1).toInt(); // extract the second value after the comma delimiter and convert it to a float
 
     Serial.print("Value 1: ");
     Serial.println(temperature);
     Serial.print("Value 2: ");
     Serial.println(humidity);
-    //Serial.print("Value 3: ");
-    //Serial.println(pressure);
-  } else {
-    Serial.println("Error at Serial");
-  }
+    Serial.print("Value 3: ");
+    Serial.println(aqi_ppm);
+  
 
   //read_THP(current_ms, &have_thp, &temperature, &humidity, &pressure);
 
@@ -299,65 +297,14 @@ void loop()
   Serial.println(temperature);
   Serial.print("humidity ");
   Serial.println(humidity);
-  Serial.print("pressure ");
-  Serial.println(pressure);
-  display_thp(temperature, humidity, pressure); 
+  Serial.print("aqi_ppm ");
+  Serial.println(aqi_ppm);
+
+  display_thp(temperature, humidity, aqi_ppm); 
   
   Serial.println("-------");
 
-  float vBat;
-  float val = analogRead(37);
-  vBat = val * (3.3/4095)  ;
-  Serial.print("vBat ");
-  Serial.println(vBat);
-  //***************************************************************************************************
-  //   loop on GPS serial communication - check if data is available every 1 sec new reading form GPS should occur
-  //***************************************************************************************************
-  boolean newData = false;
-  for (unsigned long start = millis(); millis() - start < 1000;)
-  { 
-    while (neogps.available())
-    {
-      if (gps.encode(neogps.read()))
-      {
-        newData = true;
-      }
-    }
-  }
-
-  if(newData == true)
-  {
-    newData = false;
-
-    if (gps.location.isValid() == 1) {
-      Serial.println("gps data valid");
-     
-      lat=(gps.location.lat());
-      lng=(gps.location.lng());
-      alt=gps.altitude.meters();  
-      sat=gps.satellites.value();
-      course= gps.course.deg();
-      //distbetween = gps.distanceBetween(gps.location.lat(), gps.location.lng(), landingLat, landingLng));
-      speed=gps.speed.kmph();
-      Serial.print("latitude = ");
-      Serial.println(lat);
-      Serial.print("longtitude = ");
-      Serial.println(lng);
-      Serial.print("altitude = ");
-      Serial.println(alt);
-      Serial.print("speed = ");
-      Serial.println(speed);
-      Serial.print("course = ");
-      Serial.println(course);
-      Serial.print("sat = ");
-      Serial.println(sat);
-    } else {
-      Serial.println("gps data invalid");
-      //display_gps(0, 0, 0, 0, 0 , 0);
-    }
-  }
-
-  generate_payload(temperature,humidity,pressure);
+  generate_payload(temperature,humidity,aqi_ppm);
 
   // *************************************************************************************************
   // have to send the data? send in the interval of TTN_MESSAGING_INTERVAL
@@ -368,7 +315,7 @@ void loop()
  
     Serial.println("Sending to TTN ...");
     // avoid neg. numbers on temperature - ttn payload formatter has to subtract the 500
-    sendBMEData2TTN(1,0, (temperature+500), humidity, pressure);
+    sendBMEData2TTN(1,0, (temperature+500), (humidity+500), (aqi_ppm+500));
     // print state of switch
     Serial.println("data sent");
   }
